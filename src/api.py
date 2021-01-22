@@ -8,10 +8,6 @@ from flask import Flask, abort, jsonify
 from flask.json import JSONEncoder
 from flask_cors import CORS
 
-app = Flask(__name__)
-CORS(app)
-dynamodb = boto3.resource('dynamodb')
-
 
 class DecimalEncoder(JSONEncoder):
     def default(self, o):
@@ -22,6 +18,9 @@ class DecimalEncoder(JSONEncoder):
         return super(DecimalEncoder, self).default(o)
 
 
+app = Flask(__name__)
+CORS(app)
+dynamodb = boto3.resource('dynamodb')
 app.json_encoder = DecimalEncoder
 
 
