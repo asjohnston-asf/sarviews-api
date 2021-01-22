@@ -2,11 +2,11 @@ from decimal import Decimal
 from os import environ
 
 import boto3
-from serverless_wsgi import handle_request
 from boto3.dynamodb.conditions import Key
 from flask import Flask, abort, jsonify
 from flask.json import JSONEncoder
 from flask_cors import CORS
+from serverless_wsgi import handle_request
 
 
 class DecimalEncoder(JSONEncoder):
@@ -20,8 +20,8 @@ class DecimalEncoder(JSONEncoder):
 
 app = Flask(__name__)
 CORS(app)
-dynamodb = boto3.resource('dynamodb')
 app.json_encoder = DecimalEncoder
+dynamodb = boto3.resource('dynamodb')
 
 
 @app.route('/events')
