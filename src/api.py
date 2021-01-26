@@ -57,5 +57,18 @@ def get_event_by_id(event_id):
     return jsonify(event)
 
 
+@app.route('/recent_products')
+def get_recent_products():
+    table = dynamodb.Table(environ['PRODUCTS_TABLE_NAME'])
+    key_expression = Key('status_code').eq('SUCCESSFUL')
+    response = table.query(
+        IndexName='processing_date',
+        KeyConditionExpression=key_expression,
+        Limit=100,
+        ScanIndexForward=False,
+    )
+    return jsonify(response['Items'])
+
+
 def lambda_handler(event, context):
     return handle_request(app, event, context)
