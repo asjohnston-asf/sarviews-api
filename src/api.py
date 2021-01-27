@@ -25,41 +25,39 @@ app.json_encoder = DecimalEncoder
 dynamodb = boto3.resource('dynamodb')
 
 
-@app.route('/events')
-def get_events():
+def query_all_events():
     table = dynamodb.Table(environ['EVENTS_TABLE_NAME'])
     response = table.scan()
     events = response['Items']
     while 'LastEvaluatedKey' in response:
         response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
         events.extend(response['Items'])
-    return jsonify(events)
+    return events
 
 
-@app.route('/events/<event_id>')
-def get_event_by_id(event_id):
+def query_event_by_id(event_id):
     table = dynamodb.Table(environ['EVENTS_TABLE_NAME'])
     response = table.get_item(Key={'event_id': event_id})
-    event = response.get('Item')
-    if not event:
-        abort(404)
+    if 'Item' not in response:
+        raise ValueError(f'Event {event_id} not found')
+    return response['Item']
 
+
+def query_products_for_event(event_id):
     table = dynamodb.Table(environ['PRODUCTS_TABLE_NAME'])
     key_expression = Key('event_id').eq(event_id)
     response = table.query(KeyConditionExpression=key_expression)
-    event['products'] = response['Items']
+    products = response['Items']
     while 'LastEvaluatedKey' in response:
         response = table.query(
             KeyConditionExpression=key_expression,
             ExclusiveStartKey=response['LastEvaluatedKey'],
         )
-        event['products'].extend(response['Items'])
+        products.extend(response['Items'])
+    return products
 
-    return jsonify(event)
 
-
-@app.route('/recent_products')
-def get_recent_products():
+def query_recent_products():
     table = dynamodb.Table(environ['PRODUCTS_TABLE_NAME'])
     one_week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).strftime('%Y-%m-%dT%H:%M:%SZ')
     key_expression = Key('status_code').eq('SUCCEEDED') & Key('processing_date').gte(one_week_ago)
@@ -67,7 +65,29 @@ def get_recent_products():
         IndexName='processing_date',
         KeyConditionExpression=key_expression,
     )
-    return jsonify(response['Items'])
+    return response['Items']
+
+
+@app.route('/events')
+def get_events():
+    events = query_all_events()
+    return jsonify(events)
+
+
+@app.route('/events/<event_id>')
+def get_event_by_id(event_id):
+    try:
+        event = query_event_by_id(event_id)
+    except ValueError:
+        abort(404)
+    event['products'] = query_products_for_event(event_id)
+    return jsonify(event)
+
+
+@app.route('/recent_products')
+def get_recent_products():
+    recent_products = query_recent_products()
+    return jsonify(recent_products)
 
 
 def lambda_handler(event, context):
